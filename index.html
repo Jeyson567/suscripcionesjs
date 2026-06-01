@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS Agency Manager</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body>
+  <div class="app" id="app">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="logo-wrap">
+          <img src="" alt="Logo" class="logo-img" id="sidebarLogo" hidden>
+          <div class="logo-placeholder" id="logoPlaceholder">
+            <i class="fas fa-layer-group"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-name" id="brandName">JS Agency</span>
+            <span class="brand-sub">Manager</span>
+          </div>
+        </div>
+        <button class="btn-icon sidebar-close" id="sidebarClose" aria-label="Cerrar menú">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-view="dashboard">
+          <i class="fas fa-chart-pie"></i><span>Dashboard</span>
+        </a>
+        <a href="#" class="nav-item" data-view="clientes">
+          <i class="fas fa-users"></i><span>Clientes</span>
+        </a>
+        <a href="#" class="nav-item" data-view="sistemas">
+          <i class="fas fa-server"></i><span>Sistemas</span>
+        </a>
+        <a href="#" class="nav-item" data-view="ingresos">
+          <i class="fas fa-dollar-sign"></i><span>Ingresos</span>
+        </a>
+        <a href="#" class="nav-item" data-view="estadisticas">
+          <i class="fas fa-chart-line"></i><span>Estadísticas</span>
+        </a>
+        <a href="#" class="nav-item" data-view="calendario">
+          <i class="fas fa-calendar-alt"></i><span>Calendario</span>
+        </a>
+        <a href="#" class="nav-item" data-view="configuracion">
+          <i class="fas fa-cog"></i><span>Configuración</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <span class="version">v1.0</span>
+      </div>
+    </aside>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+    <!-- Main -->
+    <main class="main">
+      <header class="topbar">
+        <button class="btn-icon" id="sidebarToggle" aria-label="Menú">
+          <i class="fas fa-bars"></i>
+        </button>
+        <div class="topbar-title">
+          <h1 id="pageTitle">Dashboard</h1>
+          <p id="pageSubtitle">Resumen general de tu agencia</p>
+        </div>
+        <div class="topbar-actions">
+          <div class="global-search">
+            <i class="fas fa-search"></i>
+            <input type="search" id="globalSearch" placeholder="Buscar clientes, sistemas, ingresos..." autocomplete="off">
+            <div class="search-results" id="searchResults" hidden></div>
+          </div>
+          <button class="btn-icon" id="refreshBtn" title="Actualizar datos">
+            <i class="fas fa-sync-alt"></i>
+          </button>
+        </div>
+      </header>
+
+      <div class="content" id="content">
+        <!-- Dashboard -->
+        <section class="view active" id="view-dashboard">
+          <div class="stats-grid" id="dashboardStats"></div>
+          <div class="charts-grid">
+            <div class="card chart-card">
+              <div class="card-header"><h3>Ventas por mes</h3></div>
+              <div class="card-body"><canvas id="chartVentasMes"></canvas></div>
+            </div>
+            <div class="card chart-card">
+              <div class="card-header"><h3>Ingresos por mes</h3></div>
+              <div class="card-body"><canvas id="chartIngresosMes"></canvas></div>
+            </div>
+            <div class="card chart-card">
+              <div class="card-header"><h3>Sistemas por categoría</h3></div>
+              <div class="card-body chart-doughnut"><canvas id="chartCategorias"></canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><h3>Actividad reciente</h3></div>
+            <div class="card-body table-wrap">
+              <table class="data-table" id="recentActivityTable">
+                <thead>
+                  <tr><th>Tipo</th><th>Descripción</th><th>Fecha</th><th>Monto</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Clientes -->
+        <section class="view" id="view-clientes">
+          <div class="module-toolbar">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="search" id="clientesSearch" placeholder="Buscar clientes...">
+            </div>
+            <div class="toolbar-actions">
+              <div class="export-group">
+                <button class="btn btn-secondary btn-sm" data-export="clientes" data-format="pdf"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button class="btn btn-secondary btn-sm" data-export="clientes" data-format="excel"><i class="fas fa-file-excel"></i> Excel</button>
+                <button class="btn btn-secondary btn-sm" data-export="clientes" data-format="json"><i class="fas fa-file-code"></i> JSON</button>
+              </div>
+              <button class="btn btn-primary" id="btnAddCliente"><i class="fas fa-plus"></i> Nuevo cliente</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body table-wrap">
+              <table class="data-table" id="clientesTable">
+                <thead>
+                  <tr>
+                    <th>Nombre</th><th>Empresa</th><th>Teléfono</th><th>Correo</th><th>Dirección</th><th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Sistemas -->
+        <section class="view" id="view-sistemas">
+          <div class="module-toolbar">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="search" id="sistemasSearch" placeholder="Buscar sistemas...">
+            </div>
+            <select class="filter-select" id="sistemasFilterEstado">
+              <option value="">Todos los estados</option>
+              <option value="Cotización">Cotización</option>
+              <option value="Desarrollo">Desarrollo</option>
+              <option value="Pruebas">Pruebas</option>
+              <option value="Entregado">Entregado</option>
+              <option value="Soporte">Soporte</option>
+            </select>
+            <select class="filter-select" id="sistemasFilterCategoria">
+              <option value="">Todas las categorías</option>
+            </select>
+            <div class="toolbar-actions">
+              <div class="export-group">
+                <button class="btn btn-secondary btn-sm" data-export="sistemas" data-format="pdf"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button class="btn btn-secondary btn-sm" data-export="sistemas" data-format="excel"><i class="fas fa-file-excel"></i> Excel</button>
+                <button class="btn btn-secondary btn-sm" data-export="sistemas" data-format="json"><i class="fas fa-file-code"></i> JSON</button>
+              </div>
+              <button class="btn btn-primary" id="btnAddSistema"><i class="fas fa-plus"></i> Nuevo sistema</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body table-wrap">
+              <table class="data-table" id="sistemasTable">
+                <thead>
+                  <tr>
+                    <th>Sistema</th><th>Cliente</th><th>Categoría</th><th>Venta</th><th>Entrega</th><th>Precio</th><th>Estado</th><th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Ingresos -->
+        <section class="view" id="view-ingresos">
+          <div class="stats-grid stats-grid-sm" id="ingresosStats"></div>
+          <div class="module-toolbar">
+            <div class="search-box">
+              <i class="fas fa-search"></i>
+              <input type="search" id="ingresosSearch" placeholder="Buscar ingresos...">
+            </div>
+            <div class="toolbar-actions">
+              <div class="export-group">
+                <button class="btn btn-secondary btn-sm" data-export="ingresos" data-format="pdf"><i class="fas fa-file-pdf"></i> PDF</button>
+                <button class="btn btn-secondary btn-sm" data-export="ingresos" data-format="excel"><i class="fas fa-file-excel"></i> Excel</button>
+                <button class="btn btn-secondary btn-sm" data-export="ingresos" data-format="json"><i class="fas fa-file-code"></i> JSON</button>
+              </div>
+              <button class="btn btn-primary" id="btnAddIngreso"><i class="fas fa-plus"></i> Nuevo ingreso</button>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-body table-wrap">
+              <table class="data-table" id="ingresosTable">
+                <thead>
+                  <tr>
+                    <th>Cliente</th><th>Sistema</th><th>Fecha</th><th>Monto</th><th>Método</th><th>Observaciones</th><th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- Estadísticas -->
+        <section class="view" id="view-estadisticas">
+          <div class="filters-bar" id="estadisticasFilters">
+            <select id="statFilterAnio"></select>
+            <select id="statFilterMes">
+              <option value="">Todos los meses</option>
+              <option value="0">Enero</option><option value="1">Febrero</option><option value="2">Marzo</option>
+              <option value="3">Abril</option><option value="4">Mayo</option><option value="5">Junio</option>
+              <option value="6">Julio</option><option value="7">Agosto</option><option value="8">Septiembre</option>
+              <option value="9">Octubre</option><option value="10">Noviembre</option><option value="11">Diciembre</option>
+            </select>
+            <select id="statFilterCliente"><option value="">Todos los clientes</option></select>
+            <select id="statFilterCategoria"><option value="">Todas las categorías</option></select>
+          </div>
+          <div class="stats-grid" id="estadisticasStats"></div>
+          <div class="charts-grid charts-grid-2">
+            <div class="card chart-card">
+              <div class="card-header"><h3>Ventas</h3></div>
+              <div class="card-body"><canvas id="chartStatVentas"></canvas></div>
+            </div>
+            <div class="card chart-card">
+              <div class="card-header"><h3>Ingresos</h3></div>
+              <div class="card-body"><canvas id="chartStatIngresos"></canvas></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Calendario -->
+        <section class="view" id="view-calendario">
+          <div class="calendar-layout">
+            <div class="card calendar-card">
+              <div class="card-header calendar-header">
+                <button class="btn-icon" id="calPrev"><i class="fas fa-chevron-left"></i></button>
+                <h3 id="calMonthYear"></h3>
+                <button class="btn-icon" id="calNext"><i class="fas fa-chevron-right"></i></button>
+              </div>
+              <div class="card-body">
+                <div class="calendar-weekdays">
+                  <span>Dom</span><span>Lun</span><span>Mar</span><span>Mié</span>
+                  <span>Jue</span><span>Vie</span><span>Sáb</span>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+              </div>
+            </div>
+            <div class="calendar-sidebar">
+              <div class="card">
+                <div class="card-header"><h3><i class="fas fa-clock"></i> Entregas pendientes</h3></div>
+                <div class="card-body event-list" id="entregasPendientes"></div>
+              </div>
+              <div class="card">
+                <div class="card-header"><h3><i class="fas fa-bolt"></i> Próximas entregas</h3></div>
+                <div class="card-body event-list" id="entregasProximas"></div>
+              </div>
+              <div class="card">
+                <div class="card-header"><h3><i class="fas fa-star"></i> Fechas importantes</h3></div>
+                <div class="card-body event-list" id="fechasImportantes"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Configuración -->
+        <section class="view" id="view-configuracion">
+          <div class="config-grid">
+            <div class="card">
+              <div class="card-header"><h3>Información de la agencia</h3></div>
+              <div class="card-body">
+                <form id="configForm" class="form">
+                  <div class="form-group logo-upload">
+                    <label>Logo</label>
+                    <div class="logo-preview-wrap">
+                      <img id="configLogoPreview" alt="Logo" hidden>
+                      <div class="logo-preview-placeholder" id="configLogoPlaceholder"><i class="fas fa-image"></i></div>
+                      <input type="file" id="configLogo" accept="image/*" hidden>
+                      <button type="button" class="btn btn-secondary btn-sm" id="btnSelectLogo">Seleccionar imagen</button>
+                    </div>
+                  </div>
+                  <div class="form-group">
+                    <label for="configNombre">Nombre de la agencia</label>
+                    <input type="text" id="configNombre" required>
+                  </div>
+                  <div class="form-group">
+                    <label for="configInfo">Información general</label>
+                    <textarea id="configInfo" rows="4"></textarea>
+                  </div>
+                  <div class="form-group">
+                    <label for="configTelefono">Teléfono</label>
+                    <input type="tel" id="configTelefono">
+                  </div>
+                  <div class="form-group">
+                    <label for="configCorreo">Correo</label>
+                    <input type="email" id="configCorreo">
+                  </div>
+                  <div class="form-group">
+                    <label for="configDireccion">Dirección</label>
+                    <input type="text" id="configDireccion">
+                  </div>
+                  <button type="submit" class="btn btn-primary"><i class="fas fa-save"></i> Guardar configuración</button>
+                </form>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-header"><h3>Respaldos</h3></div>
+              <div class="card-body backup-section">
+                <p>Exporta o importa todos los datos del sistema en formato JSON.</p>
+                <div class="backup-actions">
+                  <button class="btn btn-primary" id="btnExportBackup"><i class="fas fa-download"></i> Exportar respaldo JSON</button>
+                  <label class="btn btn-secondary file-label">
+                    <i class="fas fa-upload"></i> Importar respaldo JSON
+                    <input type="file" id="btnImportBackup" accept=".json" hidden>
+                  </label>
+                </div>
+                <p class="text-muted text-sm">La importación reemplazará los datos existentes. Se recomienda exportar un respaldo antes.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal Cliente -->
+  <div class="modal-overlay" id="modalCliente" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalClienteTitle">Nuevo cliente</h2>
+        <button class="btn-icon modal-close" data-close="modalCliente"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="formCliente" class="modal-body form">
+        <input type="hidden" id="clienteId">
+        <div class="form-row">
+          <div class="form-group"><label for="clienteNombre">Nombre *</label><input type="text" id="clienteNombre" required></div>
+          <div class="form-group"><label for="clienteEmpresa">Empresa</label><input type="text" id="clienteEmpresa"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="clienteTelefono">Teléfono</label><input type="tel" id="clienteTelefono"></div>
+          <div class="form-group"><label for="clienteCorreo">Correo</label><input type="email" id="clienteCorreo"></div>
+        </div>
+        <div class="form-group"><label for="clienteDireccion">Dirección</label><input type="text" id="clienteDireccion"></div>
+        <div class="form-group"><label for="clienteObservaciones">Observaciones</label><textarea id="clienteObservaciones" rows="3"></textarea></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalCliente">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Sistema -->
+  <div class="modal-overlay" id="modalSistema" hidden>
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h2 id="modalSistemaTitle">Nuevo sistema</h2>
+        <button class="btn-icon modal-close" data-close="modalSistema"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="formSistema" class="modal-body form">
+        <input type="hidden" id="sistemaId">
+        <div class="form-row">
+          <div class="form-group"><label for="sistemaNombre">Nombre del sistema *</label><input type="text" id="sistemaNombre" required></div>
+          <div class="form-group"><label for="sistemaCliente">Cliente *</label><select id="sistemaCliente" required></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="sistemaCategoria">Categoría *</label><select id="sistemaCategoria" required></select></div>
+          <div class="form-group"><label for="sistemaEstado">Estado *</label><select id="sistemaEstado" required></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="sistemaFechaVenta">Fecha de venta *</label><input type="date" id="sistemaFechaVenta" required></div>
+          <div class="form-group"><label for="sistemaFechaEntrega">Fecha estimada de entrega</label><input type="date" id="sistemaFechaEntrega"></div>
+        </div>
+        <div class="form-group"><label for="sistemaPrecio">Precio *</label><input type="number" id="sistemaPrecio" min="0" step="0.01" required></div>
+        <div class="form-group"><label for="sistemaDescripcion">Descripción</label><textarea id="sistemaDescripcion" rows="3"></textarea></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalSistema">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Ingreso -->
+  <div class="modal-overlay" id="modalIngreso" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="modalIngresoTitle">Nuevo ingreso</h2>
+        <button class="btn-icon modal-close" data-close="modalIngreso"><i class="fas fa-times"></i></button>
+      </div>
+      <form id="formIngreso" class="modal-body form">
+        <input type="hidden" id="ingresoId">
+        <div class="form-row">
+          <div class="form-group"><label for="ingresoCliente">Cliente *</label><select id="ingresoCliente" required></select></div>
+          <div class="form-group"><label for="ingresoSistema">Sistema *</label><select id="ingresoSistema" required></select></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label for="ingresoFecha">Fecha *</label><input type="date" id="ingresoFecha" required></div>
+          <div class="form-group"><label for="ingresoMonto">Monto *</label><input type="number" id="ingresoMonto" min="0" step="0.01" required></div>
+        </div>
+        <div class="form-group"><label for="ingresoMetodo">Método de pago *</label><select id="ingresoMetodo" required></select></div>
+        <div class="form-group"><label for="ingresoObservaciones">Observaciones</label><textarea id="ingresoObservaciones" rows="3"></textarea></div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-close="modalIngreso">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Confirm Delete -->
+  <div class="modal-overlay" id="modalConfirm" hidden>
+    <div class="modal modal-sm">
+      <div class="modal-header"><h2>Confirmar eliminación</h2></div>
+      <div class="modal-body"><p id="confirmMessage">¿Está seguro de eliminar este registro?</p></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-close="modalConfirm">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div class="loading-overlay" id="loadingOverlay" hidden>
+    <div class="spinner"></div>
+    <p>Cargando...</p>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+  <script src="js/firebase.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/clientes.js"></script>
+  <script src="js/sistemas.js"></script>
+  <script src="js/ingresos.js"></script>
+  <script src="js/estadisticas.js"></script>
+  <script src="js/calendario.js"></script>
+  <script src="js/configuracion.js"></script>
+</body>
+</html>
