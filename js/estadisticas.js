@@ -78,9 +78,9 @@ const EstadisticasModule = {
       { label: 'Ventas semana', value: ventasSemana, icon: 'shopping-cart', color: 'blue' },
       { label: 'Ventas mes', value: ventasMes, icon: 'calendar', color: 'blue' },
       { label: 'Ventas año', value: ventasAnio, icon: 'chart-bar', color: 'blue' },
-      { label: 'Ingresos semana', value: `$${Utils.formatMoney(ingSemana)}`, icon: 'dollar-sign', color: 'green' },
-      { label: 'Ingresos mes', value: `$${Utils.formatMoney(ingMes)}`, icon: 'wallet', color: 'green' },
-      { label: 'Ingresos año', value: `$${Utils.formatMoney(ingAnio)}`, icon: 'coins', color: 'green' }
+      { label: 'Ingresos semana', value: Utils.formatMoney(ingSemana), icon: 'coins', color: 'green', currency: true },
+      { label: 'Ingresos mes', value: Utils.formatMoney(ingMes), icon: 'wallet', color: 'green', currency: true },
+      { label: 'Ingresos año', value: Utils.formatMoney(ingAnio), icon: 'piggy-bank', color: 'green', currency: true }
     ];
 
     document.getElementById('estadisticasStats').innerHTML = stats.map(s => `
@@ -88,7 +88,7 @@ const EstadisticasModule = {
         <div class="stat-icon ${s.color}"><i class="fas fa-${s.icon}"></i></div>
         <div class="stat-info">
           <div class="stat-label">${s.label}</div>
-          <div class="stat-value${String(s.value).includes('$') ? ' currency' : ''}">${s.value}</div>
+          <div class="stat-value${s.currency ? ' currency' : ''}">${s.value}</div>
         </div>
       </div>
     `).join('');
@@ -140,7 +140,7 @@ const EstadisticasModule = {
       data: {
         labels: Utils.monthNamesFull,
         datasets: [{
-          label: 'Ingresos ($)',
+          label: 'Ingresos (Q.)',
           data: ingresosMes,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -148,7 +148,19 @@ const EstadisticasModule = {
           tension: 0.4
         }]
       },
-      options: chartOpts
+      options: {
+        ...chartOpts,
+        scales: {
+          ...chartOpts.scales,
+          y: {
+            ...chartOpts.scales.y,
+            ticks: {
+              ...chartOpts.scales.y.ticks,
+              callback: v => 'Q.' + v.toLocaleString('es-GT')
+            }
+          }
+        }
+      }
     });
   }
 };

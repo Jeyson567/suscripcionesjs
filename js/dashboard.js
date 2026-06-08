@@ -11,6 +11,7 @@ const DashboardModule = {
   render() {
     this.renderStats();
     this.renderCharts();
+    this.renderCobrosPendientes();
     this.renderRecentActivity();
   },
 
@@ -39,19 +40,24 @@ const DashboardModule = {
     const activos = AppState.sistemas.filter(s => ['Desarrollo', 'Pruebas', 'Cotización'].includes(s.estado)).length;
     const entregados = Analytics.getSistemasByEstado('Entregado').length;
     const soporte = Analytics.getSistemasByEstado('Soporte').length;
+    const suscripciones = Analytics.getSuscripcionesActivas().length;
+    const cuotaMensual = Analytics.getIngresoMensualEsperado();
+    const morosos = Analytics.getCobrosPendientesMes().length;
+    const pendiente = Analytics.getTotalPendiente();
 
     const stats = [
-      { label: 'Total sistemas vendidos', value: totalSistemas, icon: 'server', color: 'blue' },
+      { label: 'Total sistemas', value: totalSistemas, icon: 'server', color: 'blue' },
       { label: 'Sistemas activos', value: activos, icon: 'cogs', color: 'cyan' },
-      { label: 'Sistemas entregados', value: entregados, icon: 'check-circle', color: 'green' },
+      { label: 'Entregados', value: entregados, icon: 'check-circle', color: 'green' },
       { label: 'En soporte', value: soporte, icon: 'headset', color: 'purple' },
-      { label: 'Ventas semana', value: ventasSemana, icon: 'calendar-week', color: 'blue' },
-      { label: 'Ventas mes', value: ventasMes, icon: 'calendar-alt', color: 'blue' },
-      { label: 'Ventas año', value: ventasAnio, icon: 'chart-bar', color: 'blue' },
-      { label: 'Ingresos semana', value: `$${Utils.formatMoney(ingSemana)}`, icon: 'dollar-sign', color: 'green', currency: true },
-      { label: 'Ingresos mes', value: `$${Utils.formatMoney(ingMes)}`, icon: 'wallet', color: 'green', currency: true },
-      { label: 'Ingresos año', value: `$${Utils.formatMoney(ingAnio)}`, icon: 'piggy-bank', color: 'green', currency: true },
-      { label: 'Ingresos totales', value: `$${Utils.formatMoney(ingTotal)}`, icon: 'coins', color: 'orange', currency: true }
+      { label: 'Suscripciones activas', value: suscripciones, icon: 'sync', color: 'purple' },
+      { label: 'Cuota mensual esperada', value: Utils.formatMoney(cuotaMensual), icon: 'calendar-check', color: 'blue', currency: true },
+      { label: 'Sin pago este mes', value: morosos, icon: 'exclamation-triangle', color: 'red' },
+      { label: 'Total pendiente', value: Utils.formatMoney(pendiente), icon: 'hourglass-half', color: 'orange', currency: true },
+      { label: 'Ventas del mes', value: ventasMes, icon: 'calendar-alt', color: 'blue' },
+      { label: 'Ingresos del mes', value: Utils.formatMoney(ingMes), icon: 'wallet', color: 'green', currency: true },
+      { label: 'Ingresos del año', value: Utils.formatMoney(ingAnio), icon: 'piggy-bank', color: 'green', currency: true },
+      { label: 'Ingresos totales', value: Utils.formatMoney(ingTotal), icon: 'coins', color: 'orange', currency: true }
     ];
 
     document.getElementById('dashboardStats').innerHTML = stats.map(s => `
@@ -63,6 +69,31 @@ const DashboardModule = {
         </div>
       </div>
     `).join('');
+  },
+
+  renderCobrosPendientes() {
+    const pendientes = Analytics.getCobrosPendientesMes();
+    const tbody = document.querySelector('#cobrosPendientesTable tbody');
+    if (!tbody) return;
+
+    if (!pendientes.length) {
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="5">Todos los cobros del mes están al día</td></tr>';
+      return;
+    }
+
+    const today = new Date().getDate();
+    tbody.innerHTML = pendientes.map(p => {
+      const vencido = today > p.diaCobro;
+      const estado = vencido ? '<span class="badge badge-pruebas">Vencido</span>' : '<span class="badge badge-desarrollo">Pendiente</span>';
+      return `
+      <tr>
+        <td>${Utils.escapeHtml(p.sistema.clienteNombre || '—')}</td>
+        <td><strong>${Utils.escapeHtml(p.sistema.nombre)}</strong></td>
+        <td>${Utils.formatCurrency(p.monto)}</td>
+        <td>Día ${p.diaCobro}</td>
+        <td>${estado}</td>
+      </tr>`;
+    }).join('');
   },
 
   renderCharts() {
@@ -102,7 +133,7 @@ const DashboardModule = {
       data: {
         labels: Utils.monthNames,
         datasets: [{
-          label: 'Ingresos',
+          label: 'Ingresos (Q.)',
           data: ingresosMes,
           borderColor: '#10b981',
           backgroundColor: 'rgba(16, 185, 129, 0.15)',
@@ -115,7 +146,13 @@ const DashboardModule = {
         plugins: { legend: { display: false } },
         scales: {
           ...chartDefaults.scales,
-          y: { ...chartDefaults.scales.y, ticks: { ...chartDefaults.scales.y.ticks, callback: v => '$' + v.toLocaleString() } }
+          y: {
+            ...chartDefaults.scales.y,
+            ticks: {
+              ...chartDefaults.scales.y.ticks,
+              callback: v => 'Q.' + v.toLocaleString('es-GT')
+            }
+          }
         }
       }
     });
@@ -158,7 +195,7 @@ const DashboardModule = {
         tipo: 'Sistema',
         desc: `${s.nombre} - ${s.clienteNombre || ''}`,
         fecha: s.fechaVenta,
-        monto: s.precio,
+        monto: Utils.isSuscripcion(s) ? s.cuotaMensual : s.precio,
         ts: Utils.getTimestamp(s.fechaVenta)
       });
     });
@@ -187,7 +224,7 @@ const DashboardModule = {
         <td><span class="badge badge-desarrollo">${Utils.escapeHtml(a.tipo)}</span></td>
         <td>${Utils.escapeHtml(a.desc)}</td>
         <td>${Utils.formatDate(a.fecha)}</td>
-        <td>$${Utils.formatMoney(a.monto)}</td>
+        <td>${Utils.formatCurrency(a.monto)}</td>
       </tr>
     `).join('');
   }

@@ -29,7 +29,11 @@ const ESTADOS_SISTEMA = [
   'Cotización', 'Desarrollo', 'Pruebas', 'Entregado', 'Soporte'
 ];
 
-const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Depósito', 'Otro'];
+const METODOS_PAGO = ['Efectivo', 'Transferencia', 'Depósito', 'Tarjeta', 'Otro'];
+
+const TIPOS_COBRO = ['Venta única', 'Suscripción mensual'];
+
+const TIPOS_PAGO = ['Cuota inicial', 'Cuota mensual', 'Abono', 'Otro'];
 
 const FirebaseDB = {
   db,

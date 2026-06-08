@@ -13,24 +13,35 @@ const AppState = {
 const PAGE_META = {
   dashboard: { title: 'Dashboard', subtitle: 'Resumen general de tu agencia' },
   clientes: { title: 'Clientes', subtitle: 'Gestión de clientes' },
-  sistemas: { title: 'Sistemas', subtitle: 'Sistemas vendidos y en desarrollo' },
-  ingresos: { title: 'Ingresos', subtitle: 'Pagos y cobros registrados' },
+  sistemas: { title: 'Sistemas', subtitle: 'Control de ventas y suscripciones mensuales' },
+  ingresos: { title: 'Ingresos', subtitle: 'Pagos y cobros en quetzales (Q.)' },
   estadisticas: { title: 'Estadísticas', subtitle: 'Análisis y reportes' },
   calendario: { title: 'Calendario', subtitle: 'Entregas y fechas importantes' },
   configuracion: { title: 'Configuración', subtitle: 'Ajustes de la agencia' }
 };
 
 const Utils = {
+  CURRENCY: 'GTQ',
+  CURRENCY_SYMBOL: 'Q.',
+
   formatMoney(amount) {
     const n = Number(amount) || 0;
-    return n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return n.toLocaleString('es-GT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  },
+
+  formatCurrency(amount) {
+    return `${this.CURRENCY_SYMBOL}${this.formatMoney(amount)}`;
   },
 
   formatDate(dateStr) {
     if (!dateStr) return '—';
     const d = dateStr.toDate ? dateStr.toDate() : new Date(dateStr);
     if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    return d.toLocaleDateString('es-GT', { day: '2-digit', month: 'short', year: 'numeric' });
+  },
+
+  isSuscripcion(sistema) {
+    return sistema?.tipoCobro === 'Suscripción mensual';
   },
 
   toDateInput(dateStr) {
@@ -273,7 +284,7 @@ const GlobalSearch = {
     html += '<div class="search-group"><div class="search-group-title">Ingresos</div>';
     ingresos.forEach(i => {
       html += `<div class="search-item" data-nav="ingresos">
-        <strong>$${Utils.formatMoney(i.monto)}</strong>
+        <strong>${Utils.formatCurrency(i.monto)}</strong>
         <span>${Utils.escapeHtml(i.clienteNombre)} · ${Utils.escapeHtml(i.sistemaNombre || '')}</span></div>`;
     });
     html += '</div>';
@@ -321,14 +332,62 @@ const Analytics = {
     return items.reduce((sum, s) => sum + (Number(s.precio) || 0), 0);
   },
 
+  getCobradoSistema(sistemaId) {
+    return AppState.ingresos
+      .filter(i => i.sistemaId === sistemaId)
+      .reduce((sum, i) => sum + (Number(i.monto) || 0), 0);
+  },
+
+  getSaldoSistema(sistema) {
+    if (!sistema) return 0;
+    const cobrado = this.getCobradoSistema(sistema.id);
+    if (Utils.isSuscripcion(sistema)) {
+      const cuota = Number(sistema.cuotaMensual) || 0;
+      if (!cuota) return 0;
+      if (!this.tienePagoMesActual(sistema.id)) return cuota;
+      return 0;
+    }
+    const precio = Number(sistema.precio) || 0;
+    return Math.max(0, precio - cobrado);
+  },
+
+  tienePagoMesActual(sistemaId, date = new Date()) {
+    const y = date.getFullYear();
+    const m = date.getMonth();
+    return AppState.ingresos.some(i => {
+      if (i.sistemaId !== sistemaId) return false;
+      const d = Utils.parseDate(i.fecha);
+      return d && d.getFullYear() === y && d.getMonth() === m;
+    });
+  },
+
+  getSuscripcionesActivas() {
+    return AppState.sistemas.filter(s =>
+      Utils.isSuscripcion(s) &&
+      ['Entregado', 'Soporte'].includes(s.estado) &&
+      (s.estadoSuscripcion || 'Activa') === 'Activa'
+    );
+  },
+
+  getIngresoMensualEsperado() {
+    return this.getSuscripcionesActivas()
+      .reduce((sum, s) => sum + (Number(s.cuotaMensual) || 0), 0);
+  },
+
+  getCobrosPendientesMes(date = new Date()) {
+    return this.getSuscripcionesActivas()
+      .filter(s => !this.tienePagoMesActual(s.id, date))
+      .map(s => ({
+        sistema: s,
+        monto: Number(s.cuotaMensual) || 0,
+        diaCobro: Number(s.diaCobro) || 1
+      }));
+  },
+
   getTotalPendiente() {
     let total = 0;
     AppState.sistemas.forEach(s => {
-      const precio = Number(s.precio) || 0;
-      const cobrado = AppState.ingresos
-        .filter(i => i.sistemaId === s.id)
-        .reduce((sum, i) => sum + (Number(i.monto) || 0), 0);
-      total += Math.max(0, precio - cobrado);
+      total += this.getSaldoSistema(s);
     });
     return total;
   },

@@ -5,13 +5,16 @@ const SistemasModule = {
   searchQuery: '',
   filterEstado: '',
   filterCategoria: '',
+  filterTipo: '',
 
   init() {
     this.populateCategorias();
     this.populateEstados();
+    this.populateTiposCobro();
 
     document.getElementById('btnAddSistema').addEventListener('click', () => this.openForm());
     document.getElementById('formSistema').addEventListener('submit', e => this.handleSubmit(e));
+    document.getElementById('sistemaTipoCobro').addEventListener('change', () => this.toggleCobroFields());
     document.getElementById('sistemasSearch').addEventListener('input', Utils.debounce(e => {
       this.searchQuery = e.target.value.trim().toLowerCase();
       this.renderTable();
@@ -24,6 +27,26 @@ const SistemasModule = {
       this.filterCategoria = e.target.value;
       this.renderTable();
     });
+    document.getElementById('sistemasFilterTipo').addEventListener('change', e => {
+      this.filterTipo = e.target.value;
+      this.renderTable();
+    });
+  },
+
+  populateTiposCobro() {
+    const select = document.getElementById('sistemaTipoCobro');
+    select.innerHTML = TIPOS_COBRO.map(t => `<option value="${t}">${t}</option>`).join('');
+  },
+
+  toggleCobroFields() {
+    const tipo = document.getElementById('sistemaTipoCobro').value;
+    const esSuscripcion = tipo === 'Suscripción mensual';
+    document.getElementById('sistemaVentaUnicaFields').hidden = esSuscripcion;
+    document.getElementById('sistemaSuscripcionFields').hidden = !esSuscripcion;
+    document.getElementById('sistemaPrecio').required = !esSuscripcion;
+    document.getElementById('sistemaCuotaMensual').required = esSuscripcion;
+    document.getElementById('sistemaEstadoSuscripcion').closest('.form-group').style.display =
+      esSuscripcion ? '' : 'none';
   },
 
   populateCategorias() {
@@ -51,13 +74,19 @@ const SistemasModule = {
     if (current) select.value = current;
   },
 
+  getMontoLabel(s) {
+    if (Utils.isSuscripcion(s)) return Utils.formatCurrency(s.cuotaMensual) + '/mes';
+    return Utils.formatCurrency(s.precio);
+  },
+
   getFiltered() {
     let data = [...AppState.sistemas];
     if (this.filterEstado) data = data.filter(s => s.estado === this.filterEstado);
     if (this.filterCategoria) data = data.filter(s => s.categoria === this.filterCategoria);
+    if (this.filterTipo) data = data.filter(s => (s.tipoCobro || 'Venta única') === this.filterTipo);
     if (this.searchQuery) {
       data = data.filter(s =>
-        [s.nombre, s.clienteNombre, s.categoria, s.estado, s.descripcion]
+        [s.nombre, s.clienteNombre, s.categoria, s.estado, s.descripcion, s.tipoCobro]
           .some(v => v?.toLowerCase().includes(this.searchQuery))
       );
     }
@@ -70,18 +99,26 @@ const SistemasModule = {
     const tbody = document.querySelector('#sistemasTable tbody');
 
     if (!data.length) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No hay sistemas registrados</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="9">No hay sistemas registrados</td></tr>';
       return;
     }
 
-    tbody.innerHTML = data.map(s => `
+    tbody.innerHTML = data.map(s => {
+      const cobrado = Analytics.getCobradoSistema(s.id);
+      const pendiente = Analytics.getSaldoSistema(s);
+      const tipo = s.tipoCobro || 'Venta única';
+      const tipoBadge = Utils.isSuscripcion(s) ? 'badge-soporte' : 'badge-desarrollo';
+      const pendienteClass = pendiente > 0 ? 'text-warning' : 'text-success';
+
+      return `
       <tr>
         <td><strong>${Utils.escapeHtml(s.nombre)}</strong></td>
         <td>${Utils.escapeHtml(s.clienteNombre || '—')}</td>
+        <td><span class="badge ${tipoBadge}">${Utils.escapeHtml(tipo)}</span></td>
         <td>${Utils.escapeHtml(s.categoria || '—')}</td>
-        <td>${Utils.formatDate(s.fechaVenta)}</td>
-        <td>${Utils.formatDate(s.fechaEntrega)}</td>
-        <td>$${Utils.formatMoney(s.precio)}</td>
+        <td>${this.getMontoLabel(s)}</td>
+        <td>${Utils.formatCurrency(cobrado)}</td>
+        <td class="${pendienteClass}"><strong>${Utils.formatCurrency(pendiente)}</strong></td>
         <td><span class="badge ${Utils.badgeClass(s.estado)}">${Utils.escapeHtml(s.estado)}</span></td>
         <td>
           <div class="action-btns">
@@ -89,8 +126,8 @@ const SistemasModule = {
             <button class="btn-icon delete" title="Eliminar" data-delete="${s.id}"><i class="fas fa-trash"></i></button>
           </div>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
     tbody.querySelectorAll('[data-edit]').forEach(btn => {
       btn.addEventListener('click', () => this.openForm(btn.dataset.edit));
@@ -105,6 +142,7 @@ const SistemasModule = {
     const form = document.getElementById('formSistema');
     form.reset();
     document.getElementById('sistemaId').value = '';
+    document.getElementById('sistemaDiaCobro').value = '1';
 
     if (id) {
       const s = AppState.sistemas.find(x => x.id === id);
@@ -115,15 +153,21 @@ const SistemasModule = {
       document.getElementById('sistemaCliente').value = s.clienteId || '';
       document.getElementById('sistemaCategoria').value = s.categoria || '';
       document.getElementById('sistemaEstado').value = s.estado || '';
+      document.getElementById('sistemaTipoCobro').value = s.tipoCobro || 'Venta única';
+      document.getElementById('sistemaEstadoSuscripcion').value = s.estadoSuscripcion || 'Activa';
       document.getElementById('sistemaFechaVenta').value = Utils.toDateInput(s.fechaVenta);
       document.getElementById('sistemaFechaEntrega').value = Utils.toDateInput(s.fechaEntrega);
-      document.getElementById('sistemaPrecio').value = s.precio || '';
+      document.getElementById('sistemaPrecio').value = s.precio ?? '';
+      document.getElementById('sistemaCuotaMensual').value = s.cuotaMensual ?? '';
+      document.getElementById('sistemaDiaCobro').value = s.diaCobro || 1;
       document.getElementById('sistemaDescripcion').value = s.descripcion || '';
     } else {
       document.getElementById('modalSistemaTitle').textContent = 'Nuevo sistema';
       document.getElementById('sistemaFechaVenta').value = new Date().toISOString().split('T')[0];
+      document.getElementById('sistemaTipoCobro').value = 'Venta única';
     }
 
+    this.toggleCobroFields();
     UI.openModal('modalSistema');
   },
 
@@ -132,6 +176,8 @@ const SistemasModule = {
     const id = document.getElementById('sistemaId').value;
     const clienteId = document.getElementById('sistemaCliente').value;
     const cliente = AppState.clientes.find(c => c.id === clienteId);
+    const tipoCobro = document.getElementById('sistemaTipoCobro').value;
+    const esSuscripcion = tipoCobro === 'Suscripción mensual';
 
     const data = {
       nombre: document.getElementById('sistemaNombre').value.trim(),
@@ -139,9 +185,13 @@ const SistemasModule = {
       clienteNombre: cliente ? cliente.nombre : '',
       categoria: document.getElementById('sistemaCategoria').value,
       estado: document.getElementById('sistemaEstado').value,
+      tipoCobro,
       fechaVenta: document.getElementById('sistemaFechaVenta').value,
       fechaEntrega: document.getElementById('sistemaFechaEntrega').value,
-      precio: parseFloat(document.getElementById('sistemaPrecio').value) || 0,
+      precio: esSuscripcion ? 0 : (parseFloat(document.getElementById('sistemaPrecio').value) || 0),
+      cuotaMensual: esSuscripcion ? (parseFloat(document.getElementById('sistemaCuotaMensual').value) || 0) : 0,
+      diaCobro: esSuscripcion ? (parseInt(document.getElementById('sistemaDiaCobro').value, 10) || 1) : null,
+      estadoSuscripcion: esSuscripcion ? document.getElementById('sistemaEstadoSuscripcion').value : null,
       descripcion: document.getElementById('sistemaDescripcion').value.trim()
     };
 
@@ -179,11 +229,13 @@ const SistemasModule = {
 
   getExportData(format) {
     const data = AppState.sistemas;
-    const headers = ['Sistema', 'Cliente', 'Categoría', 'Fecha Venta', 'Fecha Entrega', 'Precio', 'Estado', 'Descripción'];
+    const headers = ['Sistema', 'Cliente', 'Tipo', 'Categoría', 'Precio/Cuota', 'Cobrado', 'Pendiente', 'Estado', 'Descripción'];
     const rows = data.map(s => [
-      s.nombre, s.clienteNombre, s.categoria,
-      Utils.toDateInput(s.fechaVenta), Utils.toDateInput(s.fechaEntrega),
-      s.precio, s.estado, s.descripcion
+      s.nombre, s.clienteNombre, s.tipoCobro || 'Venta única', s.categoria,
+      Utils.isSuscripcion(s) ? s.cuotaMensual : s.precio,
+      Analytics.getCobradoSistema(s.id),
+      Analytics.getSaldoSistema(s),
+      s.estado, s.descripcion
     ]);
 
     if (format === 'json') ExportService.exportJSON('sistemas', data);

@@ -6,6 +6,7 @@ const IngresosModule = {
 
   init() {
     this.populateMetodos();
+    this.populateTipos();
     document.getElementById('btnAddIngreso').addEventListener('click', () => this.openForm());
     document.getElementById('formIngreso').addEventListener('submit', e => this.handleSubmit(e));
     document.getElementById('ingresosSearch').addEventListener('input', Utils.debounce(e => {
@@ -16,11 +17,19 @@ const IngresosModule = {
     document.getElementById('ingresoCliente').addEventListener('change', () => {
       this.populateSistemasSelect();
     });
+    document.getElementById('ingresoSistema').addEventListener('change', () => {
+      this.suggestMonto();
+    });
   },
 
   populateMetodos() {
     const select = document.getElementById('ingresoMetodo');
     select.innerHTML = METODOS_PAGO.map(m => `<option value="${m}">${m}</option>`).join('');
+  },
+
+  populateTipos() {
+    const select = document.getElementById('ingresoTipo');
+    select.innerHTML = TIPOS_PAGO.map(t => `<option value="${t}">${t}</option>`).join('');
   },
 
   populateSelects() {
@@ -42,14 +51,40 @@ const IngresosModule = {
     if (clienteId) sistemas = sistemas.filter(s => s.clienteId === clienteId);
 
     sistemaSelect.innerHTML = '<option value="">Seleccionar sistema...</option>' +
-      sistemas.map(s => `<option value="${s.id}" data-cliente="${s.clienteId}">${Utils.escapeHtml(s.nombre)} - $${Utils.formatMoney(s.precio)}</option>`).join('');
+      sistemas.map(s => {
+        const monto = Utils.isSuscripcion(s) ? s.cuotaMensual : s.precio;
+        const label = Utils.isSuscripcion(s) ? `${Utils.formatCurrency(monto)}/mes` : Utils.formatCurrency(monto);
+        return `<option value="${s.id}" data-cliente="${s.clienteId}">${Utils.escapeHtml(s.nombre)} - ${label}</option>`;
+      }).join('');
     if (current) sistemaSelect.value = current;
+    this.suggestMonto();
+  },
+
+  suggestMonto() {
+    const sistemaId = document.getElementById('ingresoSistema').value;
+    const montoInput = document.getElementById('ingresoMonto');
+    const tipoSelect = document.getElementById('ingresoTipo');
+    if (!sistemaId || montoInput.value) return;
+
+    const sistema = AppState.sistemas.find(s => s.id === sistemaId);
+    if (!sistema) return;
+
+    if (Utils.isSuscripcion(sistema)) {
+      montoInput.value = sistema.cuotaMensual || '';
+      tipoSelect.value = 'Cuota mensual';
+    } else {
+      const pendiente = Analytics.getSaldoSistema(sistema);
+      if (pendiente > 0) {
+        montoInput.value = pendiente;
+        tipoSelect.value = Analytics.getCobradoSistema(sistema.id) > 0 ? 'Abono' : 'Cuota inicial';
+      }
+    }
   },
 
   getFiltered() {
     if (!this.searchQuery) return AppState.ingresos;
     return AppState.ingresos.filter(i =>
-      [i.clienteNombre, i.sistemaNombre, i.metodo, i.observaciones, String(i.monto)]
+      [i.clienteNombre, i.sistemaNombre, i.metodo, i.tipoPago, i.observaciones, String(i.monto)]
         .some(v => v?.toLowerCase().includes(this.searchQuery))
     );
   },
@@ -70,12 +105,16 @@ const IngresosModule = {
     const totalPendiente = Analytics.getTotalPendiente();
     const totalMensual = Analytics.sumIngresos(Analytics.getIngresosInRange(monthStart, monthEnd));
     const totalAnual = Analytics.sumIngresos(Analytics.getIngresosInRange(yearStart, yearEnd));
+    const cuotaEsperada = Analytics.getIngresoMensualEsperado();
+    const morosos = Analytics.getCobrosPendientesMes().length;
 
     const stats = [
-      { label: 'Total cobrado', value: `$${Utils.formatMoney(totalCobrado)}`, icon: 'check-circle', color: 'green' },
-      { label: 'Total pendiente', value: `$${Utils.formatMoney(totalPendiente)}`, icon: 'clock', color: 'orange' },
-      { label: 'Total mensual', value: `$${Utils.formatMoney(totalMensual)}`, icon: 'calendar-alt', color: 'blue' },
-      { label: 'Total anual', value: `$${Utils.formatMoney(totalAnual)}`, icon: 'chart-line', color: 'purple' }
+      { label: 'Total cobrado', value: Utils.formatMoney(totalCobrado), icon: 'check-circle', color: 'green', currency: true },
+      { label: 'Total pendiente', value: Utils.formatMoney(totalPendiente), icon: 'clock', color: 'orange', currency: true },
+      { label: 'Ingresos del mes', value: Utils.formatMoney(totalMensual), icon: 'calendar-alt', color: 'blue', currency: true },
+      { label: 'Cuota mensual esperada', value: Utils.formatMoney(cuotaEsperada), icon: 'sync', color: 'purple', currency: true },
+      { label: 'Ingresos del año', value: Utils.formatMoney(totalAnual), icon: 'chart-line', color: 'cyan', currency: true },
+      { label: 'Suscripciones sin pago', value: morosos, icon: 'exclamation-triangle', color: 'red', currency: false }
     ];
 
     const el = document.getElementById('ingresosStats');
@@ -85,7 +124,7 @@ const IngresosModule = {
         <div class="stat-icon ${s.color}"><i class="fas fa-${s.icon}"></i></div>
         <div class="stat-info">
           <div class="stat-label">${s.label}</div>
-          <div class="stat-value currency">${s.value}</div>
+          <div class="stat-value${s.currency !== false ? ' currency' : ''}">${s.value}</div>
         </div>
       </div>
     `).join('');
@@ -96,7 +135,7 @@ const IngresosModule = {
     const tbody = document.querySelector('#ingresosTable tbody');
 
     if (!data.length) {
-      tbody.innerHTML = '<tr class="empty-row"><td colspan="7">No hay ingresos registrados</td></tr>';
+      tbody.innerHTML = '<tr class="empty-row"><td colspan="8">No hay ingresos registrados</td></tr>';
       return;
     }
 
@@ -105,7 +144,8 @@ const IngresosModule = {
         <td>${Utils.escapeHtml(i.clienteNombre || '—')}</td>
         <td>${Utils.escapeHtml(i.sistemaNombre || '—')}</td>
         <td>${Utils.formatDate(i.fecha)}</td>
-        <td><strong>$${Utils.formatMoney(i.monto)}</strong></td>
+        <td><strong>${Utils.formatCurrency(i.monto)}</strong></td>
+        <td>${Utils.escapeHtml(i.tipoPago || '—')}</td>
         <td>${Utils.escapeHtml(i.metodo || '—')}</td>
         <td>${Utils.escapeHtml(i.observaciones || '—')}</td>
         <td>
@@ -140,11 +180,13 @@ const IngresosModule = {
       document.getElementById('ingresoSistema').value = i.sistemaId || '';
       document.getElementById('ingresoFecha').value = Utils.toDateInput(i.fecha);
       document.getElementById('ingresoMonto').value = i.monto || '';
+      document.getElementById('ingresoTipo').value = i.tipoPago || 'Otro';
       document.getElementById('ingresoMetodo').value = i.metodo || '';
       document.getElementById('ingresoObservaciones').value = i.observaciones || '';
     } else {
       document.getElementById('modalIngresoTitle').textContent = 'Nuevo ingreso';
       document.getElementById('ingresoFecha').value = new Date().toISOString().split('T')[0];
+      document.getElementById('ingresoTipo').value = 'Cuota mensual';
     }
 
     UI.openModal('modalIngreso');
@@ -165,6 +207,7 @@ const IngresosModule = {
       sistemaNombre: sistema ? sistema.nombre : '',
       fecha: document.getElementById('ingresoFecha').value,
       monto: parseFloat(document.getElementById('ingresoMonto').value) || 0,
+      tipoPago: document.getElementById('ingresoTipo').value,
       metodo: document.getElementById('ingresoMetodo').value,
       observaciones: document.getElementById('ingresoObservaciones').value.trim()
     };
@@ -202,10 +245,10 @@ const IngresosModule = {
 
   getExportData(format) {
     const data = AppState.ingresos;
-    const headers = ['Cliente', 'Sistema', 'Fecha', 'Monto', 'Método', 'Observaciones'];
+    const headers = ['Cliente', 'Sistema', 'Fecha', 'Monto (Q.)', 'Tipo', 'Método', 'Observaciones'];
     const rows = data.map(i => [
       i.clienteNombre, i.sistemaNombre,
-      Utils.toDateInput(i.fecha), i.monto, i.metodo, i.observaciones
+      Utils.toDateInput(i.fecha), i.monto, i.tipoPago, i.metodo, i.observaciones
     ]);
 
     if (format === 'json') ExportService.exportJSON('ingresos', data);

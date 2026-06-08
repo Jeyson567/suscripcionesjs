@@ -337,7 +337,7 @@ img { max-width: 100%; display: block; }
 .stat-info { min-width: 0; }
 .stat-label { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 4px; }
 .stat-value { font-size: 1.35rem; font-weight: 700; line-height: 1.2; }
-.stat-value.currency::before { content: '$'; font-size: 0.9rem; margin-right: 2px; }
+.stat-value.currency::before { content: 'Q.'; font-size: 0.85rem; margin-right: 3px; font-weight: 600; }
 
 /* Charts */
 .charts-grid {
@@ -644,6 +644,10 @@ img { max-width: 100%; display: block; }
 .cal-dot.entrega { background: var(--warning); }
 .cal-dot.venta { background: var(--accent); }
 .cal-dot.ingreso { background: var(--success); }
+.cal-dot.cobro { background: var(--danger); }
+
+.text-warning { color: var(--warning); }
+.text-success { color: var(--success); }
 
 .event-list { max-height: 280px; overflow-y: auto; }
 

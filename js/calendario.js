@@ -19,6 +19,9 @@ const CalendarioModule = {
   getEvents() {
     const events = [];
 
+    const year = this.currentDate.getFullYear();
+    const month = this.currentDate.getMonth();
+
     AppState.sistemas.forEach(s => {
       if (s.fechaEntrega) {
         events.push({
@@ -38,6 +41,18 @@ const CalendarioModule = {
           sistema: s
         });
       }
+      if (Utils.isSuscripcion(s) && s.diaCobro && ['Entregado', 'Soporte'].includes(s.estado)) {
+        const dia = Math.min(28, Math.max(1, Number(s.diaCobro) || 1));
+        const cobroDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+        const pagado = Analytics.tienePagoMesActual(s.id, new Date(year, month, dia));
+        events.push({
+          type: pagado ? 'ingreso' : 'cobro',
+          date: cobroDate,
+          title: `Cobro: ${s.nombre}`,
+          subtitle: `${Utils.formatCurrency(s.cuotaMensual)} · ${s.clienteNombre}`,
+          sistema: s
+        });
+      }
     });
 
     AppState.ingresos.forEach(i => {
@@ -45,7 +60,7 @@ const CalendarioModule = {
         events.push({
           type: 'ingreso',
           date: i.fecha,
-          title: `Pago: $${Utils.formatMoney(i.monto)}`,
+          title: `Pago: ${Utils.formatCurrency(i.monto)}`,
           subtitle: `${i.clienteNombre} - ${i.sistemaNombre}`,
           ingreso: i
         });
@@ -121,6 +136,14 @@ const CalendarioModule = {
     const inSevenDays = new Date(today);
     inSevenDays.setDate(inSevenDays.getDate() + 7);
 
+    const cobrosPendientes = Analytics.getCobrosPendientesMes().map(p => ({
+      date: new Date(today.getFullYear(), today.getMonth(), p.diaCobro),
+      title: p.sistema.nombre,
+      subtitle: `${Utils.formatCurrency(p.monto)} · ${p.sistema.clienteNombre}`
+    }));
+    cobrosPendientes.sort((a, b) => a.date - b.date);
+    this.renderEventList('cobrosPendientesCal', cobrosPendientes.slice(0, 8), 'No hay cobros pendientes');
+
     const pendientes = [];
     const proximas = [];
     const importantes = [];
@@ -173,7 +196,7 @@ const CalendarioModule = {
         importantes.push({
           date: d,
           title: `Pago recibido`,
-          subtitle: `$${Utils.formatMoney(i.monto)} - ${i.clienteNombre}`
+          subtitle: `${Utils.formatCurrency(i.monto)} - ${i.clienteNombre}`
         });
       }
     });
